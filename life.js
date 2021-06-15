@@ -147,6 +147,28 @@ nextButton.value = 'Next';
 nextButton.style.display = 'inline-block';
 nextButton.style.marginLeft = '10px';
 
+let filenameField = document.createElement('input');
+filenameField.type = 'text';
+filenameField.placeholder = 'Filename';
+filenameField.style.display = 'none';
+filenameField.style.marginLeft = '10px';
+
+let saveButton = document.createElement('input');
+saveButton.type = 'button';
+saveButton.value = 'Save';
+saveButton.style.display = 'inline-block';
+saveButton.style.marginLeft = '10px';
+
+let openButton = document.createElement('input');
+openButton.type = 'file';
+openButton.style.display = 'none';
+
+let fakeOpenButton = document.createElement('input');
+fakeOpenButton.type = 'button';
+fakeOpenButton.value = 'Open';
+fakeOpenButton.style.marginLeft = '10px';
+fakeOpenButton.style.display = 'inline-block';
+
 let input = document.createElement('input');
 input.type = 'range';
 input.min = 1;
@@ -174,9 +196,13 @@ buttonBlock.append(button);
 buttonBlock.append(nextButton);
 buttonBlock.append(randomButton);
 buttonBlock.append(clearButton);
+buttonBlock.append(filenameField);
+buttonBlock.append(saveButton);
+buttonBlock.append(fakeOpenButton);
 document.body.append(dataBlock);
 document.body.append(buttonBlock);
 document.body.append(input);
+document.body.append(openButton);
 
 
 function onClick(e) {
@@ -247,5 +273,107 @@ clearButton.onclick = () => {
 	genNumLabel.innerText = `Generation #${genNum}`;
 }
 
-pixelGrid.update();
+function downloadFile(blob, filename) {
+	let url = window.URL.createObjectURL(blob);
 
+	let a = document.createElement('a');
+	a.style.display = 'none';
+	a.href = url;
+	a.download = filename;
+
+	document.body.append(a);
+
+	a.click()
+
+	window.URL.revokeObjectURL(blob);
+	delete a;
+}
+
+function saveFile(filename) {
+	let arr = new Uint8Array(parseInt((pixelGrid.grid.length * pixelGrid.grid[0].length) / 8));
+
+	let byteCounter = 0;
+	let counter = 7;
+	let a = 0;
+	for (let i = 0; i < pixelGrid.grid.length; i++) {
+		for (let j = 0; j < pixelGrid.grid[i].length; j++) {
+			arr[byteCounter] += (pixelGrid.grid[i][j] == 0xFFFFFF) * (2 ** counter--);
+
+			if (counter == -1) {
+				counter = 7;
+				byteCounter++;
+			}
+		}
+	}
+
+
+	downloadFile(new Blob([arr]), filename);
+}
+
+async function openFile() {
+	let reader = await openButton.files[0].stream().getReader();
+	let {value: chunk, done: readerDone} = await reader.read();
+	
+	let pixelNum = 0;
+	let chunkI = 0;
+	pixelGridLen = pixelGrid.grid.length * pixelGrid.grid[0].length;
+
+	while (pixelNum < pixelGridLen) {
+		if (!readerDone) {
+			let num = chunk[chunkI];
+			let bits = (num >>> 0).toString(2);
+			if (bits.length != 8) {
+				bits = '0'.repeat(8 - bits.length) + bits;
+			}
+			bits = bits.split('')
+			bits.map(Number);
+
+			for (let i = 0; i < 8; i++) {
+				if (pixelNum + i >= pixelGridLen) return;
+				pixelGrid.grid[parseInt((pixelNum + i) / pixelGrid.grid[0].length)][(pixelNum + i) % pixelGrid.grid.length] = bits[i] * 0xFFFFFF;
+			}
+			
+			if (chunkI == (chunk.length - 1) * 8) {
+				chunkI = 0;
+				({value: chunk, done: readerDone} = await reader.read());
+			} else {
+				chunkI++;
+			}
+		} else {
+			for (let i = 0; i < 8; i++) {
+				if (pixelNum + i >= pixelGridLen) return;
+				pixelGrid.grid[parseInt((pixelNum + i) / pixelGrid.grid[0].length)][(pixelNum + i) % pixelGrid.grid.length] = 0;
+			}
+		}
+
+		pixelNum += 8;
+	}
+	pixelGrid.update();
+}
+
+
+saveButton.onclick = () => {
+	saveButton.style.display = 'none';
+	filenameField.style.display = 'inline-block';
+
+	filenameField.onkeypress = (e) => {
+		if (e.key == 'Enter') {
+			let filename = (filenameField.value != '' ? filenameField.value : 'data');
+			saveFile(filename);
+
+			saveButton.style.display = 'inline-block';
+			filenameField.value = '';
+			filenameField.onkeypressed = null;
+			filenameField.style.display = 'none';
+		}
+	}
+}
+openButton.onchange = openFile;
+
+
+fakeOpenButton.onclick = () => {
+	openButton.click();
+}
+
+
+pixelGrid.update();
