@@ -69,6 +69,17 @@ let genNumLabel = document.createElement('div');
 genNumLabel.style.display = 'inline-block';
 genNumLabel.innerText = 'Generation #0';
 
+let lolLabel = document.createElement('label');
+lolLabel.style.marginLeft = '10px';
+lolLabel.style.display = 'inline-block';
+lolLabel.innerText = 'Lol mode';
+
+let lolCheck = document.createElement('input');
+lolCheck.type = 'checkbox';
+lolCheck.id = 'lolCheckbox';
+
+lolLabel.append(lolCheck);
+
 let genNum = 0;
 function step() {
 	let buffer = new Array(pixelGrid.grid.length);
@@ -106,7 +117,9 @@ function step() {
 				}
 			}
 
-			if (alive == 3) {
+			if (lolCheck.checked && pixelGrid.grid[i][j+1]) {
+				buffer[i][j] = 0xFFFFFF;
+			} else if (alive == 3) {
 				buffer[i][j] = 0xFFFFFF;
 			} else if (alive == 2 && pixelGrid.grid[i][j] == 0xFFFFFF) {
 				buffer[i][j] = 0xFFFFFF;
@@ -199,6 +212,7 @@ buttonBlock.append(clearButton);
 buttonBlock.append(filenameField);
 buttonBlock.append(saveButton);
 buttonBlock.append(fakeOpenButton);
+buttonBlock.append(lolLabel);
 document.body.append(dataBlock);
 document.body.append(buttonBlock);
 document.body.append(input);
